@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Web Hospital Management System (Single-file)</title>
+  <style>
+    :root{--accent:#2b6cb0;--muted:#666}
+    body{font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; background:#f5f7fb; color:#222}
+    .app{display:flex; min-height:100vh}
+    .sidebar{width:240px; background:white; padding:18px; box-shadow:0 2px 8px rgba(12,12,12,.06)}
+    .logo{font-weight:700; color:var(--accent); margin-bottom:12px}
+    .nav button{display:block; width:100%; padding:10px; border:0; background:transparent; text-align:left; margin:6px 0; border-radius:8px; cursor:pointer}
+    .nav button.active{background:linear-gradient(90deg,#e6f0fb,#fff); box-shadow:inset 0 0 0 1px rgba(43,108,176,.08)}
+    .main{flex:1; padding:20px}
+    .card{background:white; padding:14px; border-radius:10px; box-shadow:0 2px 6px rgba(12,12,12,.04)}
+    h2{margin:0 0 12px}
+    form.row{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px}
+    label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
+    input, select, textarea{width:100%; padding:8px 10px; border-radius:8px; border:1px solid #e6ecf2; background:#fbfdff}
+    .list{margin-top:12px}
+    table{width:100%; border-collapse:collapse}
+    th,td{padding:8px 10px; text-align:left; border-bottom:1px solid #f0f3f7; font-size:14px}
+    .btn{padding:8px 10px; border-radius:8px; border:0; cursor:pointer}
+    .btn.primary{background:var(--accent); color:white}
+    .btn.ghost{background:transparent; border:1px solid #e6ecf2}
+    .actions button{margin-right:6px}
+    .topbar{display:flex; gap:8px; align-items:center; margin-bottom:16px}
+    .search{margin-left:auto}
+    .muted{color:var(--muted); font-size:13px}
+    @media(max-width:800px){.sidebar{display:none}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar card">
+      <div class="logo">WebHMS</div>
+      <div class="muted">Simple single-file Hospital Management System</div>
+      <nav class="nav" style="margin-top:14px">
+        <button data-view="dashboard" class="active">Dashboard</button>
+        <button data-view="patients">Patients</button>
+        <button data-view="doctors">Doctors</button>
+        <button data-view="appointments">Appointments</button>
+        <button data-view="billing">Billing</button>
+        <button data-view="settings">Settings</button>
+      </nav>
+      <div style="margin-top:18px; font-size:13px; color:var(--muted)">Saved locally in your browser (localStorage).</div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <h2 id="view-title">Dashboard</h2>
+        <div class="search">
+          <input id="globalSearch" placeholder="Search patients, doctors, appointments..." />
+        </div>
+      </div>
+
+      <div id="view-container">
+        <!-- dynamic content inserted here -->
+      </div>
+
+    </main>
+  </div>
+
+  <template id="tpl-dashboard">
+    <div class="card">
+      <h3>Quick Overview</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:12px">
+        <div class="card" style="text-align:center">
+          <div class="muted">Patients</div>
+          <div id="stat-patients" style="font-size:22px; font-weight:700">0</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div class="muted">Doctors</div>
+          <div id="stat-doctors" style="font-size:22px; font-weight:700">0</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div class="muted">Appointments</div>
+          <div id="stat-appointments" style="font-size:22px; font-weight:700">0</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div class="muted">Revenue (this session)</div>
+          <div id="stat-revenue" style="font-size:22px; font-weight:700">0</div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-patients">
+    <div class="card">
+      <h3>Patients</h3>
+      <form id="patientForm" class="row" style="margin-top:10px">
+        <input type="hidden" name="id" />
+        <div>
+          <label>Name</label>
+          <input name="name" required />
+        </div>
+        <div>
+          <label>Phone</label>
+          <input name="phone" />
+        </div>
+        <div>
+          <label>Age</label>
+          <input name="age" type="number" />
+        </div>
+        <div>
+          <label>Gender</label>
+          <select name="gender"><option></option><option>Male</option><option>Female</option><option>Other</option></select>
+        </div>
+        <div style="grid-column:1/-1; display:flex; gap:8px; margin-top:8px">
+          <button class="btn primary" type="submit">Save Patient</button>
+          <button id="patientReset" class="btn ghost" type="button">Reset</button>
+        </div>
+      </form>
+
+      <div class="list">
+        <table id="patientsTable"><thead><tr><th>Name</th><th>Phone</th><th>Age</th><th>Gender</th><th>Actions</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-doctors">
+    <div class="card">
+      <h3>Doctors</h3>
+      <form id="doctorForm" class="row" style="margin-top:10px">
+        <input type="hidden" name="id" />
+        <div>
+          <label>Name</label>
+          <input name="name" required />
+        </div>
+        <div>
+          <label>Specialization</label>
+          <input name="spec" />
+        </div>
+        <div>
+          <label>Fee</label>
+          <input name="fee" type="number" />
+        </div>
+        <div style="grid-column:1/-1; display:flex; gap:8px; margin-top:8px">
+          <button class="btn primary" type="submit">Save Doctor</button>
+          <button id="doctorReset" class="btn ghost" type="button">Reset</button>
+        </div>
+      </form>
+
+      <div class="list">
+        <table id="doctorsTable"><thead><tr><th>Name</th><th>Specialization</th><th>Fee</th><th>Actions</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-appointments">
+    <div class="card">
+      <h3>Appointments</h3>
+      <form id="appointmentForm" class="row" style="margin-top:10px">
+        <input type="hidden" name="id" />
+        <div>
+          <label>Patient</label>
+          <select name="patientId" required></select>
+        </div>
+        <div>
+          <label>Doctor</label>
+          <select name="doctorId" required></select>
+        </div>
+        <div>
+          <label>Date & Time</label>
+          <input name="datetime" type="datetime-local" required />
+        </div>
+        <div style="grid-column:1/-1; display:flex; gap:8px; margin-top:8px">
+          <button class="btn primary" type="submit">Book Appointment</button>
+          <button id="appointmentReset" class="btn ghost" type="button">Reset</button>
+        </div>
+      </form>
+
+      <div class="list">
+        <table id="appointmentsTable"><thead><tr><th>When</th><th>Patient</th><th>Doctor</th><th>Fee</th><th>Actions</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-billing">
+    <div class="card">
+      <h3>Billing</h3>
+      <div style="display:grid; grid-template-columns:1fr 320px; gap:12px">
+        <div>
+          <div class="muted">Select appointment to generate bill</div>
+          <table id="billingAppointments"><thead><tr><th>When</th><th>Patient</th><th>Doctor</th><th>Actions</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="card">
+          <h4>Bill Preview</h4>
+          <div id="billPreview" style="margin-top:8px; min-height:140px"></div>
+          <div style="margin-top:10px; display:flex; gap:8px">
+            <button id="printBill" class="btn primary">Print Bill</button>
+            <button id="savePayment" class="btn ghost">Mark as Paid</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    // Simple single-file web HMS using localStorage
+    const STORE_KEY = 'webhms_v1';
+
+    function loadStore(){
+      try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || {patients:[], doctors:[], appointments:[], invoices:[], revenue:0}}catch(e){return {patients:[], doctors:[], appointments:[], invoices:[], revenue:0}}
+    }
+    function saveStore(s){ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
+    let store = loadStore();
+
+    // Helpers
+    const uid = ()=> Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+    // Views and navigation
+    const navButtons = document.querySelectorAll('.nav button');
+    const viewTitle = document.getElementById('view-title');
+    const viewContainer = document.getElementById('view-container');
+    const templates = {};
+    document.querySelectorAll('template').forEach(t=>templates[t.id.replace('tpl-','')]=t);
+
+    function setActiveView(view){
+      navButtons.forEach(b=>b.classList.toggle('active', b.dataset.view===view));
+      viewTitle.textContent = view.charAt(0).toUpperCase()+view.slice(1);
+      renderView(view);
+    }
+
+    navButtons.forEach(b=>b.addEventListener('click', ()=> setActiveView(b.dataset.view)));
+    document.getElementById('globalSearch').addEventListener('input', e=> renderView(getCurrentView()));
+
+    function getCurrentView(){return document.querySelector('.nav button.active').dataset.view}
+
+    // Render functions
+    function renderView(view){
+      viewContainer.innerHTML = '';
+      const tpl = templates[view];
+      if(!tpl) return viewContainer.textContent = 'Not available';
+      viewContainer.appendChild(tpl.content.cloneNode(true));
+
+      // after insert, bind behavior
+      if(view==='dashboard') return renderDashboard();
+      if(view==='patients') return bindPatients();
+      if(view==='doctors') return bindDoctors();
+      if(view==='appointments') return bindAppointments();
+      if(view==='billing') return bindBilling();
+    }
+
+    function renderDashboard(){
+      document.getElementById('stat-patients').textContent = store.patients.length;
+      document.getElementById('stat-doctors').textContent = store.doctors.length;
+      document.getElementById('stat-appointments').textContent = store.appointments.length;
+      document.getElementById('stat-revenue').textContent = store.revenue || 0;
+    }
+
+    // PATIENTS
+    function bindPatients(){
+      const form = document.getElementById('patientForm');
+      const tableBody = document.querySelector('#patientsTable tbody');
+      const resetBtn = document.getElementById('patientReset');
+
+      function renderList(){
+        tableBody.innerHTML = '';
+        const q = document.getElementById('globalSearch').value.toLowerCase();
+        store.patients.filter(p=> (p.name||'').toLowerCase().includes(q) || (p.phone||'').includes(q)).forEach(p=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.phone||'')}</td><td>${p.age||''}</td><td>${p.gender||''}</td><td class="actions"></td>`;
+          const actions = tr.querySelector('.actions');
+          const edit = document.createElement('button'); edit.className='btn ghost'; edit.textContent='Edit'; edit.addEventListener('click', ()=> fill(p));
+          const del = document.createElement('button'); del.className='btn'; del.textContent='Delete'; del.addEventListener('click', ()=>{ if(confirm('Delete patient?')){ store.patients = store.patients.filter(x=>x.id!==p.id); saveStore(store); renderList(); } });
+          actions.appendChild(edit); actions.appendChild(del);
+          tableBody.appendChild(tr);
+        })
+      }
+
+      function fill(p){
+        form.id.value = p.id; form.name.value = p.name; form.phone.value = p.phone; form.age.value = p.age; form.gender.value = p.gender;
+      }
+
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const data = {id: form.id.value || uid(), name: form.name.value.trim(), phone: form.phone.value.trim(), age: form.age.value, gender: form.gender.value};
+        const exists = store.patients.find(x=>x.id===data.id);
+        if(exists){ Object.assign(exists, data);} else store.patients.push(data);
+        saveStore(store); form.reset(); renderList();
+      })
+
+      resetBtn.addEventListener('click', ()=> form.reset());
+      renderList();
+    }
+
+    // DOCTORS
+    function bindDoctors(){
+      const form = document.getElementById('doctorForm');
+      const tableBody = document.querySelector('#doctorsTable tbody');
+      const resetBtn = document.getElementById('doctorReset');
+
+      function renderList(){
+        tableBody.innerHTML = '';
+        const q = document.getElementById('globalSearch').value.toLowerCase();
+        store.doctors.filter(d=> (d.name||'').toLowerCase().includes(q) || (d.spec||'').toLowerCase().includes(q)).forEach(d=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${escapeHtml(d.name)}</td><td>${escapeHtml(d.spec||'')}</td><td>${d.fee||''}</td><td class="actions"></td>`;
+          const actions = tr.querySelector('.actions');
+          const edit = document.createElement('button'); edit.className='btn ghost'; edit.textContent='Edit'; edit.addEventListener('click', ()=> fill(d));
+          const del = document.createElement('button'); del.className='btn'; del.textContent='Delete'; del.addEventListener('click', ()=>{ if(confirm('Delete doctor?')){ store.doctors = store.doctors.filter(x=>x.id!==d.id); saveStore(store); renderList(); } });
+          actions.appendChild(edit); actions.appendChild(del);
+          tableBody.appendChild(tr);
+        })
+      }
+
+      function fill(d){
+        form.id.value = d.id; form.name.value = d.name; form.spec.value = d.spec; form.fee.value = d.fee;
+      }
+
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const data = {id: form.id.value || uid(), name: form.name.value.trim(), spec: form.spec.value.trim(), fee: parseFloat(form.fee.value)||0};
+        const exists = store.doctors.find(x=>x.id===data.id);
+        if(exists){ Object.assign(exists, data);} else store.doctors.push(data);
+        saveStore(store); form.reset(); renderList();
+      })
+
+      resetBtn.addEventListener('click', ()=> form.reset());
+      renderList();
+    }
+
+    // APPOINTMENTS
+    function bindAppointments(){
+      const form = document.getElementById('appointmentForm');
+      const tableBody = document.querySelector('#appointmentsTable tbody');
+      const resetBtn = document.getElementById('appointmentReset');
+
+      function populateSelects(){
+        const psel = form.patientId; const dsel = form.doctorId;
+        psel.innerHTML = '<option value=""></option>' + store.patients.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+        dsel.innerHTML = '<option value=""></option>' + store.doctors.map(d=>`<option value="${d.id}">${escapeHtml(d.name)} (${escapeHtml(d.spec||'')})</option>`).join('');
+      }
+
+      function renderList(){
+        tableBody.innerHTML = '';
+        const q = document.getElementById('globalSearch').value.toLowerCase();
+        store.appointments.sort((a,b)=> new Date(a.datetime)-new Date(b.datetime)).filter(ap=>{
+          const p = store.patients.find(x=>x.id===ap.patientId)||{}; const d = store.doctors.find(x=>x.id===ap.doctorId)||{};
+          return (p.name||'').toLowerCase().includes(q) || (d.name||'').toLowerCase().includes(q) || (ap.datetime||'').includes(q);
+        }).forEach(ap=>{
+          const p = store.patients.find(x=>x.id===ap.patientId)||{}; const d = store.doctors.find(x=>x.id===ap.doctorId)||{};
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${formatDate(ap.datetime)}</td><td>${escapeHtml(p.name||'')}</td><td>${escapeHtml(d.name||'')}</td><td>${d.fee||''}</td><td class="actions"></td>`;
+          const actions = tr.querySelector('.actions');
+          const bill = document.createElement('button'); bill.className='btn primary'; bill.textContent='Bill'; bill.addEventListener('click', ()=> generateInvoice(ap));
+          const del = document.createElement('button'); del.className='btn'; del.textContent='Cancel'; del.addEventListener('click', ()=>{ if(confirm('Cancel appointment?')){ store.appointments = store.appointments.filter(x=>x.id!==ap.id); saveStore(store); renderList(); } });
+          actions.appendChild(bill); actions.appendChild(del);
+          tableBody.appendChild(tr);
+        })
+      }
+
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const data = {id: form.id.value || uid(), patientId: form.patientId.value, doctorId: form.doctorId.value, datetime: form.datetime.value};
+        const exists = store.appointments.find(x=>x.id===data.id);
+        if(exists){ Object.assign(exists, data);} else store.appointments.push(data);
+        saveStore(store); form.reset(); populateSelects(); renderList();
+      })
+
+      resetBtn.addEventListener('click', ()=>{ form.reset(); populateSelects(); });
+      populateSelects(); renderList();
+    }
+
+    // BILLING
+    function bindBilling(){
+      const tbody = document.querySelector('#billingAppointments tbody');
+      const billPreview = document.getElementById('billPreview');
+      const printBtn = document.getElementById('printBill');
+      const savePayment = document.getElementById('savePayment');
+
+      function renderList(){
+        tbody.innerHTML = '';
+        store.appointments.sort((a,b)=> new Date(a.datetime)-new Date(b.datetime)).forEach(ap=>{
+          const p = store.patients.find(x=>x.id===ap.patientId)||{}; const d = store.doctors.find(x=>x.id===ap.doctorId)||{};
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${formatDate(ap.datetime)}</td><td>${escapeHtml(p.name||'')}</td><td>${escapeHtml(d.name||'')}</td><td class="actions"></td>`;
+          const actions = tr.querySelector('.actions');
+          const gen = document.createElement('button'); gen.className='btn primary'; gen.textContent='Generate'; gen.addEventListener('click', ()=> showBill(ap));
+          actions.appendChild(gen);
+          tbody.appendChild(tr);
+        })
+      }
+
+      function showBill(ap){
+        const p = store.patients.find(x=>x.id===ap.patientId)||{}; const d = store.doctors.find(x=>x.id===ap.doctorId)||{};
+        const invoice = {id: uid(), appointmentId: ap.id, patient: p, doctor: d, datetime: ap.datetime, doctorFee: d.fee||0, others:0, total: (d.fee||0)};
+        billPreview.innerHTML = billHtml(invoice);
+        printBtn.onclick = ()=> window.print();
+        savePayment.onclick = ()=>{ store.invoices.push(invoice); store.revenue = (store.revenue||0) + invoice.total; saveStore(store); alert('Payment saved'); renderDashboard(); }
+      }
+
+      function generateInvoice(ap){ showBill(ap); setActiveView('billing'); }
+
+      renderList();
+    }
+
+    // Utilities
+    function escapeHtml(str){ if(!str) return ''; return String(str).replace(/[&<>"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s])); }
+    function formatDate(dt){ if(!dt) return ''; try{ const d=new Date(dt); return d.toLocaleString(); }catch(e){return dt} }
+    function billHtml(inv){
+      return `<div><strong>Invoice</strong><div class="muted">When: ${formatDate(inv.datetime)}</div><hr><div><b>Patient:</b> ${escapeHtml(inv.patient.name||'')}</div><div><b>Doctor:</b> ${escapeHtml(inv.doctor.name||'')}</div><div style="margin-top:8px"><b>Doctor Fee:</b> ${inv.doctorFee}</div><div><b>Other Charges:</b> ${inv.others}</div><div style="margin-top:10px; font-size:18px"><b>Total:</b> ${inv.total}</div></div>`;
+    }
+
+    // initialize
+    setActiveView('dashboard');
+
+    // expose small helper to console for debugging
+    window._webhms = {store, saveStore, loadStore};
+  </script>
+</body>
+</html>
