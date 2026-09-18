@@ -45,16 +45,178 @@ app.use(express.json());
 
 app.get("/api/health",(req,res)=>res.json({status:"ok",service:"Hospital Management API"}));
 
-app.get("/api/dashboard",async(req,res,next)=>{
-  try{
-    const [patients,doctors,appointments,revenueAgg]=await Promise.all([
+app.get("/api/dashboard", async (req, res, next) => {
+  try {
+    const [
+      patients,
+      doctors,
+      appointments,
+      revenueAgg,
+      patientGrowth,
+      appointmentStats,
+      revenueStats,
+      genderStats
+    ] = await Promise.all([
       Patient.countDocuments(),
+
       Doctor.countDocuments(),
+
       Appointment.countDocuments(),
-      Invoice.aggregate([{$match:{paymentStatus:"paid"}},{$group:{_id:null,total:{$sum:"$total"}}}])
+
+      Invoice.aggregate([
+        {
+          $match: {
+            paymentStatus: "paid"
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$total" }
+          }
+        }
+      ]),
+
+      // Monthly patient registrations
+      Patient.aggregate([
+        {
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: {
+            "_id.year": 1,
+            "_id.month": 1
+          }
+        }
+      ]),
+
+      // Monthly appointments
+      Appointment.aggregate([
+        {
+          $group: {
+            _id: {
+              year: { $year: "$datetime" },
+              month: { $month: "$datetime" }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: {
+            "_id.year": 1,
+            "_id.month": 1
+          }
+        }
+      ]),
+
+      // Monthly revenue
+      Invoice.aggregate([
+        {
+          $match: {
+            paymentStatus: "paid"
+          }
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" }
+            },
+            revenue: { $sum: "$total" }
+          }
+        },
+        {
+          $sort: {
+            "_id.year": 1,
+            "_id.month": 1
+          }
+        }
+      ]),
+
+      // Patient gender
+      Patient.aggregate([
+        {
+          $match: {
+            gender: {
+              $in: ["Male", "Female", "Other"]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: "$gender",
+            count: { $sum: 1 }
+          }
+        }
+      ])
     ]);
-    res.json({patients,doctors,appointments,revenue:revenueAgg[0]?.total||0});
-  }catch(e){next(e);}
+
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
+
+    const formatMonthlyData = (data, valueKey) =>
+      data.map((item) => ({
+        month: monthNames[item._id.month - 1],
+        year: item._id.year,
+        [valueKey]: item[valueKey]
+      }));
+
+    res.json({
+      patients,
+      doctors,
+      appointments,
+      revenue: revenueAgg[0]?.total || 0,
+
+      patientGrowth: formatMonthlyData(
+        patientGrowth.map((item) => ({
+          ...item,
+          count: item.count
+        })),
+        "count"
+      ),
+
+      appointmentStats: formatMonthlyData(
+        appointmentStats.map((item) => ({
+          ...item,
+          count: item.count
+        })),
+        "count"
+      ),
+
+      revenueStats: formatMonthlyData(
+        revenueStats.map((item) => ({
+          ...item,
+          revenue: item.revenue
+        })),
+        "revenue"
+      ),
+
+      genderStats: genderStats.map((item) => ({
+        name: item._id,
+        value: item.count
+      }))
+    });
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.use("/api/patients",patientRoutes);
