@@ -16,9 +16,14 @@ export default function App(){
   const [stats,setStats]=useState({patients:0,doctors:0,appointments:0,revenue:0});
   const [selectedAppointment,setSelectedAppointment]=useState(null);
 
-  async function refreshDashboard(){
-    try{setStats(await api.dashboard());}catch(e){console.error(e);}
+ async function refreshDashboard(){
+  try {
+    const data = await api.dashboard.get();
+    setStats(data);
+  } catch (e) {
+    console.error("Dashboard stats error:", e);
   }
+}
   useEffect(()=>{refreshDashboard();},[]);
   function bill(a){setSelectedAppointment(a);setView("billing");setSearch("");}
 
