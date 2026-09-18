@@ -1,0 +1,1 @@
+export default function Settings(){return <div className="card"><h3>Settings</h3><p className="muted">Hospital Management System settings area.</p><div className="settings-box"><b>Database:</b> MongoDB<br/><b>Backend:</b> Node.js + Express<br/><b>Frontend:</b> React + Vite</div></div>}
