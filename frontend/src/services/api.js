@@ -1,23 +1,30 @@
-const BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  "/api";
+const BASE_URL = import.meta.env.DEV
+  ? "/api"
+  : (import.meta.env.VITE_API_URL || "/api");
 
 async function request(path, options = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
+  try {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
 
-  const data = await response.json().catch(() => ({}));
+    const data = await response.json().catch(() => ({}));
 
-  if (!response.ok) {
-    throw new Error(data.message || `Request failed: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(
+        data.message || `Request failed: ${response.status}`
+      );
+    }
+
+    return data;
+  } catch (error) {
+    console.error(`API Error: ${path}`, error);
+    throw error;
   }
-
-  return data;
 }
 
 export const api = {
@@ -27,7 +34,11 @@ export const api = {
 
   patients: {
     list: (search = "") =>
-      request(`/patients${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+      request(
+        `/patients${
+          search ? `?search=${encodeURIComponent(search)}` : ""
+        }`
+      ),
 
     create: (data) =>
       request("/patients", {
@@ -49,7 +60,11 @@ export const api = {
 
   doctors: {
     list: (search = "") =>
-      request(`/doctors${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+      request(
+        `/doctors${
+          search ? `?search=${encodeURIComponent(search)}` : ""
+        }`
+      ),
 
     create: (data) =>
       request("/doctors", {
